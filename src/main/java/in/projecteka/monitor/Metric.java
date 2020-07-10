@@ -16,7 +16,7 @@ import static org.springframework.http.HttpStatus.OK;
 public class Metric {
     private final WebClient webClient;
     static final Gauge status = Gauge.build()
-            .labelNames("Path", "Status")
+            .labelNames("Path", "Status","LastUpTime")
             .name("Projecteka_metrics")
             .help("Heartbeat Status")
             .register();
