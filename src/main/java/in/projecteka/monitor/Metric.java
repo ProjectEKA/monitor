@@ -8,21 +8,25 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.springframework.http.HttpStatus.OK;
+import static org.springframework.http.HttpStatus.resolve;
 
 @AllArgsConstructor
 public class Metric {
     private final WebClient webClient;
+    private final MetricsRepository metricsRepository;
     static final Gauge status = Gauge.build()
-            .labelNames("Path", "Status","LastUpTime")
+            .labelNames("Path", "Status")
             .name("Projecteka_metrics")
             .help("Heartbeat Status")
             .register();
 
     public void processRequests() {
-        getBridgeUrls()
+                getBridgeUrls()
                 .forEach(url -> {
                     String path = String.format("%s/v1/heartbeat", url);
                     HeartbeatResponse heartbeatResponse = getHeartbeat(path);
@@ -44,10 +48,7 @@ public class Metric {
                 .block();
     }
 
-    private List<String> getBridgeUrls() {
-        //TODO
-        //Make a api call to gateway to get all the bridge urls
-        Flux<String> bridgeUrls = Flux.just("http://localhost:8000", "http://localhost:8003", "http://localhost:9052");
-        return bridgeUrls.collectList().block();
+    public List<String> getBridgeUrls() {
+        return metricsRepository.selectPaths().collectList().block();
     }
 }
