@@ -1,6 +1,7 @@
 package in.projecteka.monitor;
 
 import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import io.prometheus.client.CollectorRegistry;
@@ -15,7 +16,7 @@ import java.io.Writer;
 public class MetricController {
     private Metric metric;
 
-    @RequestMapping(path = "/metrics")
+    @GetMapping(path = "/metrics")
     public void metrics(Writer responseWriter) throws IOException {
         metric.processRequests();
         TextFormat.write004(responseWriter, CollectorRegistry.defaultRegistry.metricFamilySamples());

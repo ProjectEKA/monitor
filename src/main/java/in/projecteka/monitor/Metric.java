@@ -8,33 +8,47 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 
 import static org.springframework.http.HttpStatus.OK;
-import static org.springframework.http.HttpStatus.resolve;
 
 @AllArgsConstructor
 public class Metric {
-    private final WebClient webClient;
-    private final MetricsRepository metricsRepository;
     static final Gauge status = Gauge.build()
-            .labelNames("Path", "Status")
+            .labelNames("Path", "Status", "LastUpTime")
             .name("Projecteka_metrics")
             .help("Heartbeat Status")
             .register();
+    private final WebClient webClient;
+    private final MetricsRepository metricsRepository;
 
     public void processRequests() {
-                getBridgeUrls()
+        getBridgeUrls()
                 .forEach(url -> {
                     String path = String.format("%s/v1/heartbeat", url);
                     HeartbeatResponse heartbeatResponse = getHeartbeat(path);
-                    status.labels(path, heartbeatResponse.getStatus().toString()).set(0);
-                    if (heartbeatResponse.getStatus().equals(Status.UP)) {
-                        status.labels(path, heartbeatResponse.getStatus().toString()).inc();
+                    if (heartbeatResponse.getStatus().equals(Status.DOWN)) {
+                        String lastUpTime = metricsRepository.getIfPresent(path).block();
+                        status.labels(path, heartbeatResponse.getStatus().toString(), lastUpTime).set(0);
+                    } else {
+                        LocalDateTime lastUpTime = LocalDateTime.now(ZoneOffset.UTC);
+                        Boolean isPresent = isEntryPresent(path).block();
+                        if (isPresent != null && isPresent) {
+                            metricsRepository.update(lastUpTime, path).block();
+                        } else {
+                            metricsRepository.insert(path, Status.UP.toString(), lastUpTime).block();
+                        }
+                        status.labels(path, heartbeatResponse.getStatus().toString(), lastUpTime.toString()).inc();
                     }
                 });
+    }
+
+    private Mono<Boolean> isEntryPresent(String path) {
+        return metricsRepository.getIfPresent(path)
+                .map(entry -> !Objects.isNull(entry));
     }
 
     private HeartbeatResponse getHeartbeat(String path) {
@@ -49,6 +63,9 @@ public class Metric {
     }
 
     public List<String> getBridgeUrls() {
-        return metricsRepository.selectPaths().collectList().block();
+        //TODO
+        //Make a api call to gateway to get all the bridge urls
+        Flux<String> bridgeUrls = Flux.just("http://localhost:8003", "http://localhost:8000");
+        return bridgeUrls.collectList().block();
     }
 }
