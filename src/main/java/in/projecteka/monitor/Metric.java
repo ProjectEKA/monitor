@@ -1,11 +1,11 @@
 package in.projecteka.monitor;
 
 import in.projecteka.monitor.model.HeartbeatResponse;
+import in.projecteka.monitor.model.Path;
 import in.projecteka.monitor.model.Status;
 import io.prometheus.client.Gauge;
 import lombok.AllArgsConstructor;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -52,7 +52,7 @@ public class Metric {
     }
 
     private HeartbeatResponse getHeartbeat(String path) {
-         return webClient
+        return webClient
                 .get()
                 .uri(path)
                 .retrieve()
@@ -71,9 +71,7 @@ public class Metric {
                 .retrieve()
                 .onStatus(httpStatus -> httpStatus != OK,
                         clientResponse -> Mono.error(new Throwable("Server error")))
-                .bodyToFlux(String.class)
-                .collectList().block();
-
-
+                .bodyToMono(Path.class)
+                .block().getBridgeUrls();
     }
 }
