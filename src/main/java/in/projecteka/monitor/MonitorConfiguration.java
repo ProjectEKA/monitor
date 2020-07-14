@@ -12,8 +12,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class MonitorConfiguration {
 
     @Bean
-    public Metric metric(WebClient.Builder builder,MetricsRepository metricsRepository) {
-        return new Metric(builder.build(), metricsRepository);
+    public Metric metric(WebClient.Builder builder,
+                         MetricsRepository metricsRepository,
+                         GatewayProperties gatewayProperties) {
+        return new Metric(builder.build(), metricsRepository, gatewayProperties);
     }
 
     @Bean

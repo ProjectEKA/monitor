@@ -24,11 +24,12 @@ public class Metric {
             .register();
     private final WebClient webClient;
     private final MetricsRepository metricsRepository;
+    private final GatewayProperties gatewayProperties;
 
     public void processRequests() {
         getBridgeUrls()
                 .forEach(url -> {
-                    String path = String.format("%s/v1/heartbeat", url);
+                    String path = String.format("%s%s", url, Constants.PATH_HEARTBEAT);
                     HeartbeatResponse heartbeatResponse = getHeartbeat(path);
                     if (heartbeatResponse.getStatus().equals(Status.DOWN)) {
                         String lastUpTime = metricsRepository.getIfPresent(path).block();
@@ -67,7 +68,7 @@ public class Metric {
         //Get gateway url from config
         return webClient
                 .get()
-                .uri("http://localhost:8000/v1/getBridgeUrls")
+                .uri(String.format("%s/getBridgeUrls", gatewayProperties.getBaseUrl()))
                 .retrieve()
                 .onStatus(httpStatus -> httpStatus != OK,
                         clientResponse -> Mono.error(new Throwable("Server error")))

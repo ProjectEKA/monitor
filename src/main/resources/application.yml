@@ -8,4 +8,6 @@ monitor:
     user: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     poolSize: 5
+  gatewayservice:
+    baseUrl: ${GATEWAY_BASE_URL}
 
