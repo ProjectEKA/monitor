@@ -52,7 +52,7 @@ public class Metric {
     }
 
     private HeartbeatResponse getHeartbeat(String path) {
-        return webClient
+         return webClient
                 .get()
                 .uri(path)
                 .retrieve()
@@ -64,8 +64,16 @@ public class Metric {
 
     public List<String> getBridgeUrls() {
         //TODO
-        //Make a api call to gateway to get all the bridge urls
-        Flux<String> bridgeUrls = Flux.just("http://localhost:8003", "http://localhost:8000");
-        return bridgeUrls.collectList().block();
+        //Get gateway url from config
+        return webClient
+                .get()
+                .uri("http://localhost:8000/v1/getBridgeUrls")
+                .retrieve()
+                .onStatus(httpStatus -> httpStatus != OK,
+                        clientResponse -> Mono.error(new Throwable("Server error")))
+                .bodyToFlux(String.class)
+                .collectList().block();
+
+
     }
 }
