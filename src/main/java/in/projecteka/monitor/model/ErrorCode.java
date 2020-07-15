@@ -9,7 +9,8 @@ public enum ErrorCode {
     UNKNOWN_ERROR_OCCURRED(1000),
     INVALID_TOKEN(1017),
     SERVICE_DOWN(4222),
-    TOO_MANY_REQUESTS_FOUND(2429);
+    TOO_MANY_REQUESTS_FOUND(2429),
+    DB_OPERATION_FAILED(2500);
     private final int value;
 
     ErrorCode(int val) {

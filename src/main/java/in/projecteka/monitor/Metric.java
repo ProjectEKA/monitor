@@ -1,53 +1,65 @@
 package in.projecteka.monitor;
 
 import in.projecteka.monitor.model.HeartbeatResponse;
+import in.projecteka.monitor.model.Service;
+import in.projecteka.monitor.model.ServiceProperties;
 import in.projecteka.monitor.model.Status;
 import io.prometheus.client.Gauge;
 import lombok.AllArgsConstructor;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
-
-import static org.springframework.http.HttpStatus.OK;
+import java.util.Objects;
 
 @AllArgsConstructor
 public class Metric {
-    private final WebClient webClient;
-    static final Gauge status = Gauge.build()
-            .labelNames("Path", "Status")
+    private static final Gauge status = Gauge.build()
+            .labelNames("Name", "Id", "Path", "Status", "LastUpTime")
             .name("Projecteka_metrics")
             .help("Heartbeat Status")
             .register();
+    private final MetricRepository metricRepository;
+    private final MetricServiceClient metricServiceClient;
 
     public void processRequests() {
-        getBridgeUrls()
-                .forEach(url -> {
-                    String path = String.format("%s/v1/heartbeat", url);
-                    HeartbeatResponse heartbeatResponse = getHeartbeat(path);
-                    status.labels(path, heartbeatResponse.getStatus().toString()).set(0);
-                    if (heartbeatResponse.getStatus().equals(Status.UP)) {
-                        status.labels(path, heartbeatResponse.getStatus().toString()).inc();
-                    }
-                });
+        Service service = metricServiceClient.getService();
+        process(service.getBridgeProperties());
+        process(service.getConsentManagerProperties());
     }
 
-    private HeartbeatResponse getHeartbeat(String path) {
-        return webClient
-                .get()
-                .uri(path)
-                .retrieve()
-                .onStatus(httpStatus -> httpStatus != OK,
-                        clientResponse -> Mono.error(new Throwable("Server error")))
-                .bodyToMono(HeartbeatResponse.class)
-                .block();
+    private void process(List<ServiceProperties> properties) {
+        properties.forEach(property -> {
+            String path = String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
+            HeartbeatResponse heartbeatResponse = metricServiceClient.getHeartbeat(path);
+            if (heartbeatResponse.getStatus().equals(Status.DOWN)) {
+                String lastUpTime = metricRepository.getIfPresent(path).block();
+                lastUpTime = lastUpTime == null ? "" : lastUpTime;
+                status.labels(property.getName(),
+                        property.getId(),
+                        path,
+                        heartbeatResponse.getStatus().toString(),
+                        lastUpTime).set(0);
+            } else {
+                LocalDateTime lastUpTime = LocalDateTime.now(ZoneOffset.UTC);
+                Boolean isPresent = isEntryPresent(path).block();
+                if (isPresent != null && isPresent) {
+                    metricRepository.update(lastUpTime, path).block();
+                } else {
+                    metricRepository.insert(path, Status.UP.toString(), lastUpTime).block();
+                }
+                status.labels(property.getName(),
+                        property.getId(),
+                        path,
+                        heartbeatResponse.getStatus().toString(),
+                        lastUpTime.toString()).inc();
+            }
+        });
     }
 
-    private List<String> getBridgeUrls() {
-        //TODO
-        //Make a api call to gateway to get all the bridge urls
-        Flux<String> bridgeUrls = Flux.just("http://localhost:8000", "http://localhost:8003", "http://localhost:9052");
-        return bridgeUrls.collectList().block();
+    private Mono<Boolean> isEntryPresent(String path) {
+        return metricRepository.getIfPresent(path)
+                .map(entry -> !Objects.isNull(entry));
     }
 }
