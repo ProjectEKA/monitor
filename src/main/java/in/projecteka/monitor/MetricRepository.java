@@ -2,17 +2,11 @@ package in.projecteka.monitor;
 
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Tuple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
-import java.util.stream.StreamSupport;
 
-public class MetricsRepository {
-    private final static Logger logger = LoggerFactory.getLogger(MetricsRepository.class);
+public class MetricRepository {
     private static final String INSERT_TO_METRICS = "INSERT INTO metrics " +
             "(path, status, last_up_time) VALUES ($1, $2, $3)";
     private static final String SELECT_TO_METRICS = "SELECT path FROM metrics";
@@ -20,7 +14,7 @@ public class MetricsRepository {
     private static final String SELECT_LAST_UP_TIME = "SELECT last_up_time FROM metrics WHERE path=$1";
     private final PgPool dbClient;
 
-    public MetricsRepository(PgPool dbClient) {
+    public MetricRepository(PgPool dbClient) {
         this.dbClient = dbClient;
     }
 
@@ -67,20 +61,4 @@ public class MetricsRepository {
                                     monoSink.success(iterator.next().getValue("last_up_time").toString());
                                 }));
     }
-
-//    public Flux<String> selectPaths() {
-//        return Flux.create(fluxSink -> dbClient.preparedQuery(SELECT_TO_METRICS)
-//                .execute(
-//                        handler -> {
-//                            if (handler.failed()) {
-//                                logger.error(handler.cause().getMessage(), handler.cause());
-//                                fluxSink.error(new DbOperationError());
-//                            } else {
-//                                StreamSupport.stream(handler.result().spliterator(), false)
-//                                        .map(row -> row.getString("path"))
-//                                        .forEach(fluxSink::next);
-//                                fluxSink.complete();
-//                            }
-//                        }));
-//    }
 }
