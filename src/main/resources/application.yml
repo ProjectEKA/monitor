@@ -4,7 +4,7 @@ monitor:
   db:
     host: ${POSTGRES_HOST}
     port: ${POSTGRES_PORT:5432}
-    schema: ${CONSENT_MANAGER_DB_NAME}
+    schema: ${MONITOR_DB_NAME}
     user: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     poolSize: 5
