@@ -6,14 +6,25 @@ plugins {
 group = 'in.projecteka'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
+
 configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
 	}
 }
+
 repositories {
 	mavenCentral()
 }
+
+task bootRunLocal {
+	bootRun.configure {
+		systemProperty "spring.profiles.active", 'local'
+	}
+}
+
+bootRunLocal.finalizedBy bootRun
+
 dependencies {
 	compileOnly 'org.projectlombok:lombok'
 	testCompileOnly 'org.projectlombok:lombok'
@@ -33,4 +44,26 @@ dependencies {
 
 test {
 	useJUnitPlatform()
+}
+
+sonarqube {
+	properties {
+		property "sonar.projectKey", "ProjectEKA_gateway"
+		property "sonar.organization", "projecteka"
+		property "sonar.host.url", "https://sonarcloud.io"
+		property "sonar.login", "dd5db84dbf8f6dbd393291c26fe038ab54f00072"
+
+		property 'sonar.coverage.jacoco.xmlReportPaths', 'build/reports/jacoco/test/jacocoTestReport.xml'
+	}
+}
+
+jacocoTestReport {
+	additionalSourceDirs.from = files(sourceSets.main.allJava.srcDirs)
+	reports {
+		html.enabled true
+		xml.enabled true
+		csv.enabled false
+		html.destination file("build/reports/jacoco/html")
+	}
+	executionData.from = files('build/jacoco/test.exec')
 }
