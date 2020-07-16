@@ -1,0 +1,10 @@
+version: '3'
+services:
+  gateway:
+    build: .
+    container_name: monitor
+    hostname: monitor
+    ports:
+      - "9004:8004"
+    environment:
+      SERVICE_TIMEOUT: 5
