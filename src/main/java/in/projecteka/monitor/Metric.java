@@ -10,18 +10,15 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
 @AllArgsConstructor
 public class Metric {
-    private static final Gauge status = Gauge.build()
-            .labelNames("Name", "Id", "Path", "Status", "LastUpTime")
-            .name("Projecteka_metrics")
-            .help("Heartbeat Status")
-            .register();
     private final MetricRepository metricRepository;
     private final MetricServiceClient metricServiceClient;
+    private static final HashMap<String,Gauge> guageMap = new HashMap<>();
 
     public void processRequests() {
         Service service = metricServiceClient.getService();
@@ -33,29 +30,45 @@ public class Metric {
         properties.forEach(property -> {
             String path = String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
             HeartbeatResponse heartbeatResponse = metricServiceClient.getHeartbeat(path);
-            if (heartbeatResponse.getStatus().equals(Status.DOWN)) {
-                String lastUpTime = metricRepository.getIfPresent(path).block();
-                lastUpTime = lastUpTime == null ? "" : lastUpTime;
-                status.labels(property.getName(),
-                        property.getId(),
-                        path,
-                        heartbeatResponse.getStatus().toString(),
-                        lastUpTime).set(0);
-            } else {
-                LocalDateTime lastUpTime = LocalDateTime.now(ZoneOffset.UTC);
-                Boolean isPresent = isEntryPresent(path).block();
-                if (isPresent != null && isPresent) {
-                    metricRepository.update(lastUpTime, path).block();
-                } else {
-                    metricRepository.insert(path, Status.UP.toString(), lastUpTime).block();
-                }
-                status.labels(property.getName(),
-                        property.getId(),
-                        path,
-                        heartbeatResponse.getStatus().toString(),
-                        lastUpTime.toString()).inc();
+            if (!guageMap.containsKey("Projecteka_metrics_" + property.getName()))
+            {
+                Gauge guagestatus = Gauge.build()
+                        .labelNames("Name", "Id", "Path", "Status", "LastUpTime")
+                        .name("Projecteka_metrics_"+property.getName())
+                        .help("Heartbeat Status")
+                        .register();
+                guageMap.put("Projecteka_metrics_" + property.getName(),guagestatus);
+                appendToStatus(property, path, heartbeatResponse, guagestatus);
+            }
+            else {
+                appendToStatus(property, path, heartbeatResponse, guageMap.get("Projecteka_metrics_" + property.getName()));
             }
         });
+    }
+
+    private void appendToStatus(ServiceProperties property, String path, HeartbeatResponse heartbeatResponse, Gauge status) {
+        if (heartbeatResponse.getStatus().equals(Status.DOWN)) {
+            String lastUpTime = metricRepository.getIfPresent(path).block();
+            lastUpTime = lastUpTime == null ? "" : lastUpTime;
+            status.labels(property.getName(),
+                    property.getId(),
+                    path,
+                    heartbeatResponse.getStatus().toString(),
+                    lastUpTime).set(0);
+        } else {
+            LocalDateTime lastUpTime = LocalDateTime.now(ZoneOffset.UTC);
+            Boolean isPresent = isEntryPresent(path).block();
+            if (isPresent != null && isPresent) {
+                metricRepository.update(lastUpTime, path).block();
+            } else {
+                metricRepository.insert(path, Status.UP.toString(), lastUpTime).block();
+            }
+            status.labels(property.getName(),
+                    property.getId(),
+                    path,
+                    heartbeatResponse.getStatus().toString(),
+                    lastUpTime.toString()).inc();
+        }
     }
 
     private Mono<Boolean> isEntryPresent(String path) {
