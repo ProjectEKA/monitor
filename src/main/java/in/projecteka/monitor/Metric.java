@@ -18,7 +18,7 @@ import java.util.Objects;
 public class Metric {
     private final MetricRepository metricRepository;
     private final MetricServiceClient metricServiceClient;
-    private static final HashMap<String,Gauge> guageMap = new HashMap<>();
+    private static final HashMap<String,Gauge> gaugeMap = new HashMap<>();
 
     public void processRequests() {
         Service service = metricServiceClient.getService();
@@ -30,18 +30,18 @@ public class Metric {
         properties.forEach(property -> {
             String path = String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
             HeartbeatResponse heartbeatResponse = metricServiceClient.getHeartbeat(path);
-            if (!guageMap.containsKey("Projecteka_metrics_" + property.getName()))
+            if (!gaugeMap.containsKey("Projecteka_metrics_" + property.getType()))
             {
-                Gauge guagestatus = Gauge.build()
+                Gauge gaugeStatus = Gauge.build()
                         .labelNames("Name", "Id", "Path", "Status", "LastUpTime")
-                        .name("Projecteka_metrics_"+property.getName())
+                        .name("Projecteka_metrics_"+property.getType())
                         .help("Heartbeat Status")
                         .register();
-                guageMap.put("Projecteka_metrics_" + property.getName(),guagestatus);
-                appendToStatus(property, path, heartbeatResponse, guagestatus);
+                gaugeMap.put("Projecteka_metrics_" + property.getType(), gaugeStatus);
+                appendToStatus(property, path, heartbeatResponse, gaugeStatus);
             }
             else {
-                appendToStatus(property, path, heartbeatResponse, guageMap.get("Projecteka_metrics_" + property.getName()));
+                appendToStatus(property, path, heartbeatResponse, gaugeMap.get("Projecteka_metrics_" + property.getType()));
             }
         });
     }
