@@ -17,7 +17,14 @@ public class MetricController {
 
     @GetMapping(path = "/metrics")
     public void metrics(Writer responseWriter) throws IOException {
-        metric.processRequests();
+        metric.processRequests(false);
+        TextFormat.write004(responseWriter, CollectorRegistry.defaultRegistry.metricFamilySamples());
+        responseWriter.close();
+    }
+
+    @GetMapping(path = "/readiness")
+    public void readiness(Writer responseWriter) throws IOException {
+        metric.processRequests(true);
         TextFormat.write004(responseWriter, CollectorRegistry.defaultRegistry.metricFamilySamples());
         responseWriter.close();
     }
