@@ -24,15 +24,16 @@ public class Metric {
     private final MetricServiceClient metricServiceClient;
     private static final HashMap<String, Gauge> gaugeMap = new HashMap<>();
 
-    public void processRequests() {
+    public void processRequests(Boolean isReadiness) {
         Service service = metricServiceClient.getService();
-        process(service.getBridgeProperties());
-        process(service.getConsentManagerProperties());
+        process(service.getBridgeProperties(), isReadiness);
+        process(service.getConsentManagerProperties(), isReadiness);
     }
 
-    private void process(List<ServiceProperties> properties) {
+    private void process(List<ServiceProperties> properties, Boolean isReadiness) {
         properties.forEach(property -> {
-            String path = String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
+            String path = isReadiness ? String.format("%s%s", property.getUrl(), Constants.PATH_READINESS)
+                    : String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
             HeartbeatResponse heartbeatResponse = metricServiceClient.getHeartbeat(path);
             if (!gaugeMap.containsKey(PROJECT_EKA_METRICS + property.getType())) {
                 Gauge gaugeStatus = Gauge.build()
@@ -41,18 +42,19 @@ public class Metric {
                         .help("Heartbeat Status")
                         .register();
                 gaugeMap.put(PROJECT_EKA_METRICS + property.getType(), gaugeStatus);
-                appendToStatus(property, path, heartbeatResponse, gaugeStatus);
+                appendToStatus(property, path, heartbeatResponse, gaugeStatus, isReadiness);
             } else {
-                appendToStatus(property, path, heartbeatResponse, gaugeMap.get(PROJECT_EKA_METRICS + property.getType()));
+                appendToStatus(property, path, heartbeatResponse, gaugeMap.get(PROJECT_EKA_METRICS + property.getType()), isReadiness);
             }
         });
     }
 
     private void appendToStatus(ServiceProperties property, String path,
                                 HeartbeatResponse heartbeatResponse,
-                                Gauge status) {
+                                Gauge status,
+                                Boolean isReadiness) {
         if (heartbeatResponse.getStatus().equals(DOWN)) {
-            String lastUpTime = metricRepository.getIfPresent(path).block();
+            String lastUpTime = metricRepository.getIfPresent(path, isReadiness).block();
             status.labels(property.getName(),
                     property.getId(),
                     path,
@@ -60,11 +62,11 @@ public class Metric {
                     lastUpTime).set(0);
         } else {
             LocalDateTime lastUpTime = LocalDateTime.now(UTC);
-            Boolean isPresent = isEntryPresent(path).block();
+            Boolean isPresent = isEntryPresent(path, isReadiness).block();
             if (isPresent) {
-                metricRepository.update(lastUpTime, path).block();
+                metricRepository.update(lastUpTime, path, isReadiness).block();
             } else {
-                metricRepository.insert(path, Status.UP.toString(), lastUpTime).block();
+                metricRepository.insert(path, Status.UP.toString(), lastUpTime, isReadiness).block();
             }
             status.labels(property.getName(),
                     property.getId(),
@@ -74,8 +76,8 @@ public class Metric {
         }
     }
 
-    private Mono<Boolean> isEntryPresent(String path) {
-        return metricRepository.getIfPresent(path)
+    private Mono<Boolean> isEntryPresent(String path, Boolean isReadiness) {
+        return metricRepository.getIfPresent(path, isReadiness)
                 .map(entry -> !entry.equals(""))
                 .switchIfEmpty(defer(() -> just(false)));
     }
