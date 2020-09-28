@@ -4,9 +4,9 @@ monitor:
   db:
     host: localhost
     port: 5432
-    schema: consent_manager
+    schema: monitor
     user: postgres
     password: password
     poolSize: 5
   gatewayservice:
-    baseUrl: http://localhost:8000/v1
+    baseUrl: https://preprod.ndhm.gov.in/gateway/v0.5
