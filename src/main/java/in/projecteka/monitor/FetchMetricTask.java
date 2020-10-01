@@ -15,8 +15,8 @@ public class FetchMetricTask {
 
     public void fetchMetricAndSave(ServiceProperties property){
         String path = String.format("%s%s", property.getUrl(), Constants.PATH_HEARTBEAT);
-        HeartbeatResponse heartbeatResponse = metricServiceClient.getHeartbeat(path);
-        if (heartbeatResponse != null && heartbeatResponse.getStatus().equals(Status.UP)){
+        boolean isAccessible = metricServiceClient.isBridgeAccessible(path);
+        if (isAccessible){
             metricRepository.addMetric(property.getId(), property.getName(), property.getType(), path, Status.UP.name(), LocalDateTime.now(ZoneOffset.UTC), LocalDateTime.now(ZoneOffset.UTC));
         }
         else {

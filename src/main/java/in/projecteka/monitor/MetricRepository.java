@@ -29,7 +29,7 @@ public class MetricRepository {
             String sql = "INSERT INTO metrics(bridge_id, name, type, path, status, last_up_time, last_check_time) values (?, ?, ?, ?, ?, ?, ?)";
             jdbcTemplate.update(sql, bridgeId, name, type, path, status, lastUpTime, lastCheckTime);
         } else {
-            String updateMetricsQuery = "UPDATE metrics SET status = " + status + ",";
+            String updateMetricsQuery = "UPDATE metrics SET status = '" + status + "',";
             if (lastUpTime != null) {
                 updateMetricsQuery += "last_up_time = '" + lastUpTime + "', ";
             }

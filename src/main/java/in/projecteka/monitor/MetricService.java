@@ -23,22 +23,27 @@ public class MetricService {
                         .name(PROJECT_EKA_METRICS + metrics.getType())
                         .help("Heartbeat Status")
                         .register();
-
-                gaugeMap.put(PROJECT_EKA_METRICS + metrics.getType(), gaugeStatus);
-                Gauge.Child child = gaugeStatus.labels(metrics.getName(),
-                        metrics.getBridgeId(),
-                        metrics.getPath(),
-                        metrics.getStatus().name(),
-                        String.valueOf(metrics.getLastUpTime()),
-                        String.valueOf(metrics.getLastCheckTime()));
-
-                //What does the below do exactly?
-                if (DOWN.equals(metrics.getStatus())) {
-                    child.set(0);
-                } else {
-                    child.inc();
-                }
+                appendToStatus(metrics, gaugeStatus);
+            }else{
+                appendToStatus(metrics, gaugeMap.get(PROJECT_EKA_METRICS + metrics.getType()));
             }
+        }
+    }
+
+    private void appendToStatus(Metrics metrics, Gauge gaugeStatus) {
+        gaugeMap.put(PROJECT_EKA_METRICS + metrics.getType(), gaugeStatus);
+        Gauge.Child child = gaugeStatus.labels(metrics.getName(),
+                metrics.getBridgeId(),
+                metrics.getPath(),
+                metrics.getStatus().name(),
+                String.valueOf(metrics.getLastUpTime()),
+                String.valueOf(metrics.getLastCheckTime()));
+
+        //What does the below do exactly?
+        if (DOWN.equals(metrics.getStatus())) {
+            child.set(0);
+        } else {
+            child.inc();
         }
     }
 }

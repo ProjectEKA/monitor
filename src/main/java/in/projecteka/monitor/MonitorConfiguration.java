@@ -1,9 +1,6 @@
 package in.projecteka.monitor;
 
 import in.projecteka.monitor.model.DbOptions;
-import io.vertx.pgclient.PgConnectOptions;
-import io.vertx.pgclient.PgPool;
-import io.vertx.sqlclient.PoolOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +8,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
@@ -19,14 +16,18 @@ import javax.sql.DataSource;
 public class MonitorConfiguration {
 
     @Bean
-    public MetricService metric(MetricRepository metricRepository,
-                                MetricServiceClient metricServiceClient) {
-        return new MetricService(metricRepository, metricServiceClient);
+    public MetricService metric(MetricRepository metricRepository) {
+        return new MetricService(metricRepository);
     }
 
     @Bean
-    public MetricServiceClient metricServiceClient(WebClient.Builder builder, GatewayProperties gatewayProperties){
-        return new MetricServiceClient(builder.build(), gatewayProperties);
+    public RestTemplate restTemplate(){
+        return new RestTemplate();
+    }
+
+    @Bean
+    public MetricServiceClient metricServiceClient(RestTemplate restTemplate, GatewayProperties gatewayProperties){
+        return new MetricServiceClient(restTemplate, gatewayProperties);
     }
 
     @Bean
@@ -70,24 +71,4 @@ public class MonitorConfiguration {
                                            MetricServiceClient metricServiceClient){
         return new MetricScheduler(taskExecutor, metricRepository, metricServiceClient);
     };
-
-    @Bean
-    public PgPool pgPool(DbOptions dbOptions) {
-        PgConnectOptions connectOptions = new PgConnectOptions()
-                .setPort(dbOptions.getPort())
-                .setHost(dbOptions.getHost())
-                .setDatabase(dbOptions.getSchema())
-                .setUser(dbOptions.getUser())
-                .setPassword(dbOptions.getPassword());
-
-        PoolOptions poolOptions = new PoolOptions()
-                .setMaxSize(dbOptions.getPoolSize());
-
-        return PgPool.pool(connectOptions, poolOptions);
-    }
-
-    @Bean
-    public ReactiveMetricRepository metricsRepository(PgPool pgPool) {
-        return new ReactiveMetricRepository(pgPool);
-    }
 }

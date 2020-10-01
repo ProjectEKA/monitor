@@ -9,4 +9,7 @@ monitor:
     password: password
     poolSize: 5
   gatewayservice:
-    baseUrl: https://preprod.ndhm.gov.in/gateway/v0.5
+    baseUrl: http://localhost:8000/v0.5
+  scheduler:
+    initialDelay: 10000
+    interval: 60000
