@@ -10,4 +10,7 @@ monitor:
     poolSize: 5
   gatewayservice:
     baseUrl: ${GATEWAY_BASE_URL}
+  scheduler:
+    initialDelay: ${INITIAL_DELAY_IN_MILLIS:10000}
+    interval: ${INTERVAL_IN_MILLIS:300000}
 

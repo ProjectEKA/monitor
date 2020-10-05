@@ -13,11 +13,11 @@ import java.io.Writer;
 @RestController
 @AllArgsConstructor
 public class MetricController {
-    private final Metric metric;
+    private final MetricService metricService;
 
     @GetMapping(path = "/metrics")
     public void metrics(Writer responseWriter) throws IOException {
-        metric.processRequests();
+        metricService.processRequests();
         TextFormat.write004(responseWriter, CollectorRegistry.defaultRegistry.metricFamilySamples());
         responseWriter.close();
     }

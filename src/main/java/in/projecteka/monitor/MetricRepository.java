@@ -1,69 +1,76 @@
 package in.projecteka.monitor;
 
-import io.vertx.pgclient.PgPool;
-import io.vertx.sqlclient.Tuple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Mono;
+import in.projecteka.monitor.model.Status;
+import lombok.AllArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
+@AllArgsConstructor
 public class MetricRepository {
-    private static final Logger logger = LoggerFactory.getLogger(MetricRepository.class);
-    private static final String INSERT_TO_METRICS = "INSERT INTO metrics " +
-            "(path, status, last_up_time) VALUES ($1, $2, $3)";
-    private static final String UPDATE_TO_METRICS = "UPDATE metrics SET last_up_time = $1 WHERE path = $2";
-    private static final String SELECT_LAST_UP_TIME = "SELECT last_up_time FROM metrics WHERE path=$1";
-    private final PgPool dbClient;
+    private JdbcTemplate jdbcTemplate;
 
-    public MetricRepository(PgPool dbClient) {
-        this.dbClient = dbClient;
+    public void addMetric(String bridgeId, String name, String type, String path, String status, LocalDateTime lastUpTime, LocalDateTime lastCheckTime) {
+        insertOrUpdateMetric(bridgeId, name, type, path, status, lastUpTime, lastCheckTime);
+        insertMetricHistory(bridgeId, name, type, path, status, lastCheckTime);
     }
 
-    public Mono<Void> insert(String path, String status, LocalDateTime lastUpTime) {
-        return Mono.create(monoSink ->
-                dbClient.preparedQuery(INSERT_TO_METRICS)
-                        .execute(Tuple.of(path, status, lastUpTime),
-                                handler -> {
-                                    if (handler.failed()) {
-                                        logger.error(handler.cause().getMessage(), handler.cause());
-                                        monoSink.error(new DbOperationError());
-                                        return;
-                                    }
-                                    monoSink.success();
-                                }));
+    private void insertMetricHistory(String bridgeId, String name, String type, String path, String status, LocalDateTime dateCreated) {
+        String sql = "INSERT INTO metrics_history(bridge_id, name, type, path, status, date_created) values (?, ?, ?, ?, ?, ?)";
+        jdbcTemplate.update(sql, bridgeId, name, type, path, status, dateCreated);
     }
 
-    public Mono<Void> update(LocalDateTime lastUpTime, String path) {
-        return Mono.create(monoSink ->
-                dbClient.preparedQuery(UPDATE_TO_METRICS)
-                        .execute(Tuple.of(lastUpTime, path),
-                                handler -> {
-                                    if (handler.failed()) {
-                                        logger.error(handler.cause().getMessage(), handler.cause());
-                                        monoSink.error(new DbOperationError());
-                                        return;
-                                    }
-                                    monoSink.success();
-                                }));
+    private void insertOrUpdateMetric(String bridgeId, String name, String type, String path, String status, LocalDateTime lastUpTime, LocalDateTime lastCheckTime) {
+        if (!exist(path)) {
+            String sql = "INSERT INTO metrics(bridge_id, name, type, path, status, last_up_time, last_check_time) values (?, ?, ?, ?, ?, ?, ?)";
+            jdbcTemplate.update(sql, bridgeId, name, type, path, status, lastUpTime, lastCheckTime);
+        } else {
+            String updateMetricsQuery = "UPDATE metrics SET status = '" + status + "',";
+            if (lastUpTime != null) {
+                updateMetricsQuery += "last_up_time = '" + lastUpTime + "', ";
+            }
+            updateMetricsQuery += "last_check_time = '" + lastCheckTime + "' WHERE path = '" + path + "'";
+            jdbcTemplate.update(updateMetricsQuery);
+        }
     }
 
-    public Mono<String> getIfPresent(String path) {
-        return Mono.create(monoSink ->
-                dbClient.preparedQuery(SELECT_LAST_UP_TIME)
-                        .execute(Tuple.of(path),
-                                handler -> {
-                                    if (handler.failed()) {
-                                        logger.error(handler.cause().getMessage(), handler.cause());
-                                        monoSink.error(new DbOperationError());
-                                        return;
-                                    }
-                                    var iterator = handler.result().iterator();
-                                    if (!iterator.hasNext()) {
-                                        monoSink.success("");
-                                        return;
-                                    }
-                                    monoSink.success(iterator.next().getValue("last_up_time").toString());
-                                }));
+    public boolean exist(String path) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM metrics WHERE path=?", new Object[]{path},
+                Integer.class);
+        return count > 0;
+    }
+
+    public List<Metrics> findAllMetrics() {
+        String sql = "select bridge_id, name, type, path, status, last_up_time, last_check_time from metrics";
+        return jdbcTemplate.query(sql, this::mapToMetrics);
+    }
+
+    private Metrics mapToMetrics(ResultSet resultSet, int rowNum) throws SQLException {
+        String bridgeId = resultSet.getString("bridge_id");
+        String name = resultSet.getString("name");
+        String type = resultSet.getString("type");
+        String path = resultSet.getString("path");
+        String status = resultSet.getString("status");
+        LocalDateTime lastUpTime = getLocalDateTime(resultSet, "last_up_time");
+        LocalDateTime lastCheckTime = getLocalDateTime(resultSet, "last_check_time");
+        return Metrics.builder()
+                .bridgeId(bridgeId)
+                .name(name)
+                .type(type)
+                .path(path)
+                .status(Status.valueOf(status))
+                .lastUpTime(lastUpTime)
+                .lastCheckTime(lastCheckTime)
+                .build();
+    }
+
+    private LocalDateTime getLocalDateTime(ResultSet resultSet, String columnLabel) throws SQLException {
+        Timestamp timestamp = resultSet.getTimestamp(columnLabel);
+        return timestamp !=null ? timestamp.toLocalDateTime() : null;
     }
 }
